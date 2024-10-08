@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import dataclasses
+import datetime
 import io
 import wave
 from dataclasses import dataclass
@@ -89,6 +90,13 @@ class STT(stt.STT):
         self, buffer: AudioBuffer, *, language: str | None = None
     ) -> stt.SpeechEvent:
         config = self._sanitize_options(language=language)
+
+        ## TODO log
+        md = "openai"
+        if config.language == "zn":
+            md = "qwen2"
+        print("STT(", md, ") input timestamp", datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'))
+
         buffer = agents.utils.merge_frames(buffer)
         io_buffer = io.BytesIO()
         with wave.open(io_buffer, "wb") as wav:
@@ -103,6 +111,12 @@ class STT(stt.STT):
             language=config.language,
             response_format="json",
         )
+
+        ## TODO
+        ## qwen2
+        if resp.data is not None:
+            resp.text = resp.data
+        print("STT(", md, ") output timestamp", resp.text, datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'))
 
         return stt.SpeechEvent(
             type=stt.SpeechEventType.FINAL_TRANSCRIPT,

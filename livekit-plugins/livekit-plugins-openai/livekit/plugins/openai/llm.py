@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import asyncio
+import datetime
 import os
 from dataclasses import dataclass
 from typing import Any, Awaitable, MutableSet
@@ -479,6 +480,8 @@ class LLMStream(llm.LLMStream):
 
         async for chunk in self._oai_stream:
             for choice in chunk.choices:
+                ## TODO
+                print("LLM output timestamp", choice.delta.content, datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'))
                 chat_chunk = self._parse_choice(choice)
                 if chat_chunk is not None:
                     return chat_chunk
