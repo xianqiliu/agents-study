@@ -12,8 +12,9 @@ from livekit.agents import (
     WorkerOptions,
     cli,
     llm,
+    tokenize,
 )
-from livekit.agents.pipeline import VoicePipelineAgent
+from livekit.agents.pipeline import VoicePipelineAgent, AgentTranscriptionOptions
 from livekit.plugins import deepgram, openai, silero, qwen
 
 load_dotenv()
@@ -78,6 +79,11 @@ async def entrypoint(ctx: JobContext):
         chat_ctx=initial_ctx,
 
         before_tts_cb=_before_tts_cb,
+        transcription=AgentTranscriptionOptions(
+            sentence_tokenizer=tokenize.basic.SentenceTokenizer(
+                min_sentence_len=5,
+            )
+        ),
     )
 
     agent.start(ctx.room, participant)

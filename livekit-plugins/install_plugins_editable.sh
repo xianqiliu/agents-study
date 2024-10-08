@@ -22,9 +22,7 @@ fi
 ## TODO - study
 ## ../../livekit-plugins/
 
-pip install -e ../../livekit-plugins/livekit-plugins-deepgram --config-settings editable_mode=strict
 pip install -e ../../livekit-plugins/livekit-plugins-openai --config-settings editable_mode=strict
-pip install -e ../../livekit-plugins/livekit-plugins-silero --config-settings editable_mode=strict
 
 # TODO - qwen
 pip install -e ../../livekit-plugins/livekit-plugins-qwen --config-settings editable_mode=strict
