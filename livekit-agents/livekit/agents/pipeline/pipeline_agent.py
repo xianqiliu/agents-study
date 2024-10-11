@@ -124,6 +124,10 @@ class AgentTranscriptionOptions:
 
 
 class VoicePipelineAgent(utils.EventEmitter[EventTypes]):
+    """
+    A pipeline agent (VAD + STT + LLM + TTS) implementation.
+    """
+
     MIN_TIME_PLAYED_FOR_COMMIT = 1.5
     """Minimum time played for the user speech to be committed to the chat context"""
 
@@ -140,7 +144,7 @@ class VoicePipelineAgent(utils.EventEmitter[EventTypes]):
         interrupt_speech_duration: float = 0.5,
         interrupt_min_words: int = 0,
         min_endpointing_delay: float = 0.5,
-        preemptive_synthesis: bool = True,
+        preemptive_synthesis: bool = False,
         transcription: AgentTranscriptionOptions = AgentTranscriptionOptions(),
         before_llm_cb: BeforeLLMCallback = _default_before_llm_cb,
         before_tts_cb: BeforeTTSCallback = _default_before_tts_cb,
@@ -398,7 +402,6 @@ class VoicePipelineAgent(utils.EventEmitter[EventTypes]):
             self._plotter.plot_event("user_started_speaking")
             self.emit("user_started_speaking")
             self._deferred_validation.on_human_start_of_speech(ev)
-            self._update_state("listening")
 
         def _on_vad_updated(ev: vad.VADEvent) -> None:
             if not self._track_published_fut.done():
@@ -434,12 +437,21 @@ class VoicePipelineAgent(utils.EventEmitter[EventTypes]):
             if not new_transcript:
                 return
 
+            logger.debug(
+                "received user transcript",
+                extra={"user_transcript": new_transcript},
+            )
+
             self._transcribed_text += (
                 " " if self._transcribed_text else ""
             ) + new_transcript
 
             if self._opts.preemptive_synthesis:
-                self._synthesize_agent_reply()
+                if (
+                    self._playing_speech is None
+                    or self._playing_speech.allow_interruptions
+                ):
+                    self._synthesize_agent_reply()
 
             self._deferred_validation.on_human_final_transcript(new_transcript)
 
@@ -504,12 +516,12 @@ class VoicePipelineAgent(utils.EventEmitter[EventTypes]):
 
             self._speech_q_changed.clear()
 
-    def _synthesize_agent_reply(self) -> None:
+    def _synthesize_agent_reply(self):
         """Synthesize the agent reply to the user question, also make sure only one reply
         is synthesized/played at a time"""
 
         if self._pending_agent_reply is not None:
-            self._pending_agent_reply.interrupt()
+            self._pending_agent_reply.cancel()
 
         if self._human_input is not None and not self._human_input.speaking:
             self._update_state("thinking", 0.2)
@@ -552,6 +564,7 @@ class VoicePipelineAgent(utils.EventEmitter[EventTypes]):
 
         llm_stream = self._opts.before_llm_cb(self, copied_ctx)
         if llm_stream is False:
+            handle.cancel()
             return
 
         if asyncio.iscoroutine(llm_stream):
@@ -577,7 +590,6 @@ class VoicePipelineAgent(utils.EventEmitter[EventTypes]):
         logger.debug(
             "synthesizing agent reply",
             extra={
-                "user_transcript": handle.user_question,
                 "speech_id": handle.id,
                 "elapsed": elapsed,
             },
@@ -788,11 +800,21 @@ class VoicePipelineAgent(utils.EventEmitter[EventTypes]):
     def _validate_reply_if_possible(self) -> None:
         """Check if the new agent speech should be played"""
 
+        if (
+            self._playing_speech is not None
+            and not self._playing_speech.allow_interruptions
+        ):
+            logger.debug(
+                "skipping validation, agent is speaking and does not allow interruptions",
+                extra={"speech_id": self._playing_speech.id},
+            )
+            return
+
         if self._pending_agent_reply is None:
             if self._opts.preemptive_synthesis or not self._transcribed_text:
                 return
 
-            self._synthesize_agent_reply()  # this will populate self._pending_agent_reply
+            self._synthesize_agent_reply()
 
         assert self._pending_agent_reply is not None
 
@@ -802,10 +824,8 @@ class VoicePipelineAgent(utils.EventEmitter[EventTypes]):
             if not speech.is_reply:
                 continue
 
-            if not speech.allow_interruptions:
-                continue  # we shouldn't validate this speech to avoid stacking replies
-
-            speech.interrupt()
+            if speech.allow_interruptions:
+                speech.interrupt()
 
         logger.debug(
             "validated agent reply",
@@ -855,7 +875,7 @@ async def _llm_stream_to_str_iterable(
         if first_frame:
             first_frame = False
             logger.debug(
-                "first LLM token",
+                "received first LLM token",
                 extra={
                     "speech_id": speech_id,
                     "elapsed": round(time.time() - start_time, 3),

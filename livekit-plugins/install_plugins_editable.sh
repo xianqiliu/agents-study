@@ -6,7 +6,6 @@ if [[ -z "$VIRTUAL_ENV" ]]; then
     exit 1
 fi
 
-## TODO - livekit
 #pip install -e ./livekit-plugins-azure --config-settings editable_mode=strict
 #pip install -e ./livekit-plugins-cartesia --config-settings editable_mode=strict
 #pip install -e ./livekit-plugins-deepgram --config-settings editable_mode=strict
@@ -18,6 +17,8 @@ fi
 #pip install -e ./livekit-plugins-rag --config-settings editable_mode=strict
 #pip install -e ./livekit-plugins-silero --config-settings editable_mode=strict
 #pip install -e ./livekit-plugins-browser --config-settings editable_mode=strict
+#pip install -e ./livekit-plugins-llama-index --config-settings editable_mode=strict
+
 
 ## TODO - study
 ## ../../livekit-plugins/
