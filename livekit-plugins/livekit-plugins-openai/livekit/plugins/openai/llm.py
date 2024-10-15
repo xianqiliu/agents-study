@@ -37,6 +37,7 @@ from .models import (
     PerplexityChatModels,
     TelnyxChatModels,
     TogetherChatModels,
+    XAIChatModels,
 )
 from .utils import AsyncAzureADTokenProvider, build_oai_message
 
@@ -178,6 +179,35 @@ class LLM(llm.LLM):
         api_key = api_key or os.environ.get("FIREWORKS_API_KEY")
         if api_key is None:
             raise ValueError("Fireworks API key is required")
+
+        return LLM(
+            model=model,
+            api_key=api_key,
+            base_url=base_url,
+            client=client,
+            user=user,
+            temperature=temperature,
+        )
+
+    @staticmethod
+    def with_x_ai(
+        *,
+        model: str | XAIChatModels = "grok-2-public",
+        api_key: str | None = None,
+        base_url: str | None = "https://api.x.ai/v1",
+        client: openai.AsyncClient | None = None,
+        user: str | None = None,
+        temperature: float | None = None,
+    ):
+        """
+        Create a new instance of XAI LLM.
+
+        ``api_key`` must be set to your XAI API key, either using the argument or by setting
+        the ``XAI_API_KEY`` environmental variable.
+        """
+        api_key = api_key or os.environ.get("XAI_API_KEY")
+        if api_key is None:
+            raise ValueError("XAI API key is required")
 
         return LLM(
             model=model,
@@ -438,6 +468,7 @@ class LLM(llm.LLM):
             temperature = self._opts.temperature
 
         messages = _build_oai_context(chat_ctx, id(self))
+
         cmp = self._client.chat.completions.create(
             messages=messages,
             model=self._opts.model,
@@ -516,7 +547,7 @@ class LLMStream(llm.LLMStream):
                 if call_chunk is not None:
                     return call_chunk
 
-        if choice.finish_reason == "tool_calls":
+        if choice.finish_reason in ("tool_calls", "stop") and self._tool_call_id:
             # we're done with the tool calls, run the last one
             return self._try_run_function(choice)
 
@@ -549,13 +580,18 @@ class LLMStream(llm.LLMStream):
         fnc_info = llm._oai_api.create_ai_function_info(
             self._fnc_ctx, self._tool_call_id, self._fnc_name, self._fnc_raw_arguments
         )
+
         self._tool_call_id = self._fnc_name = self._fnc_raw_arguments = None
         self._function_calls_info.append(fnc_info)
 
         return llm.ChatChunk(
             choices=[
                 llm.Choice(
-                    delta=llm.ChoiceDelta(role="assistant", tool_calls=[fnc_info]),
+                    delta=llm.ChoiceDelta(
+                        role="assistant",
+                        tool_calls=[fnc_info],
+                        content=choice.delta.content,
+                    ),
                     index=choice.index,
                 )
             ]
