@@ -1,5 +1,11 @@
 # livekit-plugins-openai
 
+## 0.10.5
+
+### Patch Changes
+
+- add update_options to TTS - [#922](https://github.com/livekit/agents/pull/922) ([@theomonnom](https://github.com/theomonnom))
+
 ## 0.10.4
 
 ### Patch Changes
