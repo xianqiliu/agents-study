@@ -17,8 +17,9 @@ import os
 from dataclasses import dataclass
 from typing import Literal
 
-import azure.cognitiveservices.speech as speechsdk  # type: ignore
 from livekit.agents import tts, utils
+
+import azure.cognitiveservices.speech as speechsdk  # type: ignore
 
 AZURE_SAMPLE_RATE: int = 16000
 AZURE_BITS_PER_SAMPLE: int = 16
@@ -39,21 +40,27 @@ class ProsodyConfig:
     rate: Literal["x-slow", "slow", "medium", "fast", "x-fast"] | float | None = None
     volume: (
         Literal["silent", "x-soft", "soft", "medium", "loud", "x-loud"] | float | None
-    ) = "x-loud"
+    ) = None
     pitch: Literal["x-low", "low", "medium", "high", "x-high"] | None = None
 
     def validate(self) -> None:
         if self.rate:
             if isinstance(self.rate, float) and not 0.5 <= self.rate <= 2:
                 raise ValueError("Prosody rate must be between 0.5 and 2")
-            if self.rate not in ["x-slow", "slow", "medium", "fast", "x-fast"]:
+            if isinstance(self.rate, str) and self.rate not in [
+                "x-slow",
+                "slow",
+                "medium",
+                "fast",
+                "x-fast",
+            ]:
                 raise ValueError(
                     "Prosody rate must be one of 'x-slow', 'slow', 'medium', 'fast', 'x-fast'"
                 )
         if self.volume:
             if isinstance(self.volume, float) and not 0 <= self.volume <= 100:
                 raise ValueError("Prosody volume must be between 0 and 100")
-            if self.volume not in [
+            if isinstance(self.volume, str) and self.volume not in [
                 "silent",
                 "x-soft",
                 "soft",
@@ -65,7 +72,13 @@ class ProsodyConfig:
                     "Prosody volume must be one of 'silent', 'x-soft', 'soft', 'medium', 'loud', 'x-loud'"
                 )
 
-        if self.pitch and self.pitch not in ["x-low", "low", "medium", "high", "x-high"]:
+        if self.pitch and self.pitch not in [
+            "x-low",
+            "low",
+            "medium",
+            "high",
+            "x-high",
+        ]:
             raise ValueError(
                 "Prosody pitch must be one of 'x-low', 'low', 'medium', 'high', 'x-high'"
             )
@@ -92,12 +105,12 @@ class TTS(tts.TTS):
     def __init__(
         self,
         *,
-        speech_key: str | None = None,
-        speech_region: str | None = None,
         voice: str | None = None,
-        endpoint_id: str | None = None,
         language: str | None = None,
         prosody: ProsodyConfig | None = None,
+        speech_key: str | None = None,
+        speech_region: str | None = None,
+        endpoint_id: str | None = None,
     ) -> None:
         """
         Create a new instance of Azure TTS.
@@ -134,6 +147,17 @@ class TTS(tts.TTS):
             prosody=prosody,
         )
 
+    def update_options(
+        self,
+        *,
+        voice: str | None = None,
+        language: str | None = None,
+        prosody: ProsodyConfig | None = None,
+    ) -> None:
+        self._opts.voice = voice or self._opts.voice
+        self._opts.language = language or self._opts.language
+        self._opts.prosody = prosody or self._opts.prosody
+
     def synthesize(self, text: str) -> "ChunkedStream":
         return ChunkedStream(text, self._opts)
 
@@ -153,25 +177,22 @@ class ChunkedStream(tts.ChunkedStream):
             stream=stream_callback,
         )
 
-        def _create_ssml_text(text: str, opts: _TTSOptions) -> str:
-            ssml = f'<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="{opts.language or "en-US"}">'
-            prosody_ssml = "<prosody"
-            if opts.prosody.rate:
-                prosody_ssml += f' rate="{opts.prosody.rate}"'
-            if opts.prosody.volume:
-                prosody_ssml += f' volume="{opts.prosody.volume}"'
-            if opts.prosody.pitch:
-                prosody_ssml += f' pitch="{opts.prosody.pitch}"'
-            prosody_ssml += ">"
-            ssml += prosody_ssml
-            ssml += text
-            ssml += "</prosody></speak>"
-            return ssml
-
         def _synthesize() -> speechsdk.SpeechSynthesisResult:
             if self._opts.prosody:
-                ssml_text = _create_ssml_text(self._text, self._opts)
-                return synthesizer.speak_ssml_async(ssml_text).get()
+                ssml = f'<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="{self._opts.language or "en-US"}">'
+                prosody_ssml = "<prosody"
+                if self._opts.prosody.rate:
+                    prosody_ssml += f' rate="{self._opts.prosody.rate}"'
+                if self._opts.prosody.volume:
+                    prosody_ssml += f' volume="{self._opts.prosody.volume}"'
+                if self._opts.prosody.pitch:
+                    prosody_ssml += f' pitch="{self._opts.prosody.pitch}"'
+                prosody_ssml += ">"
+                ssml += prosody_ssml
+                ssml += self._text
+                ssml += "</prosody></speak>"
+                return synthesizer.speak_ssml_async(ssml).get()  # type: ignore
+
             return synthesizer.speak_text_async(self._text).get()  # type: ignore
 
         result = None
