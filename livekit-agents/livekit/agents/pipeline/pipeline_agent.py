@@ -563,12 +563,12 @@ class VoicePipelineAgent(utils.EventEmitter[EventTypes]):
         )
 
         llm_stream = self._opts.before_llm_cb(self, copied_ctx)
+        if asyncio.iscoroutine(llm_stream):
+            llm_stream = await llm_stream
+
         if llm_stream is False:
             handle.cancel()
             return
-
-        if asyncio.iscoroutine(llm_stream):
-            llm_stream = await llm_stream
 
         # fallback to default impl if no custom/user stream is returned
         if not isinstance(llm_stream, LLMStream):
@@ -697,8 +697,15 @@ class VoicePipelineAgent(utils.EventEmitter[EventTypes]):
                 )
                 try:
                     await called_fnc.task
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.exception(
+                        "error executing ai function",
+                        extra={
+                            "function": fnc.function_info.name,
+                            "speech_id": speech_handle.id,
+                        },
+                        exc_info=e,
+                    )
 
             self.emit("function_calls_finished", called_fncs)
             _CallContextVar.reset(tk)
@@ -727,7 +734,6 @@ class VoicePipelineAgent(utils.EventEmitter[EventTypes]):
 
                 answer_llm_stream = self._llm.chat(
                     chat_ctx=chat_ctx,
-                    fnc_ctx=self._fnc_ctx,
                 )
                 answer_synthesis = self._synthesize_agent_speech(
                     speech_handle.id, answer_llm_stream
