@@ -67,12 +67,12 @@ async def entrypoint(ctx: JobContext):
         # tts=openai.TTS(),
 
         ## TODO - qwen2
-        stt=openai.STT(base_url="http://10.218.127.99:3000/", language="zn"),
-        llm=openai.LLM(base_url="http://10.218.127.29:11434/v1/", model="qwen2:72b"),
+        stt=openai.STT(base_url="http://10.218.127.29:3000/", language="zn"),
+        llm=openai.LLM(base_url="http://10.176.196.194:11434/v1/", model="qwen2:72b"),
         tts=qwen.TTS(
             seed=42,
             style_type="中文女",
-            base_url="http://10.218.127.100:3000/instruct/synthesize",
+            base_url="http://10.218.126.243:3000/instruct/synthesize",
             prompt="A girl speaker with a brisk pitch, an enthusiastic speaking pace, and a upbeat emotional demeanor.",
         ),
 
