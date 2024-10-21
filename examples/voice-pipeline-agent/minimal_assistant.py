@@ -108,7 +108,6 @@ async def entrypoint(ctx: JobContext):
 
     ## TODO
     test = "你好，有什么我可以帮你的吗？"
-    # test = "欢迎使用360智汇云RTC驱动的大模型AI语音助手"
     # test = "Hey, how can I help you today?"
     await agent.say(test, allow_interruptions=True)
 
