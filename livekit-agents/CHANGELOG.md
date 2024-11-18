@@ -1,5 +1,11 @@
 # livekit-agents
 
+## 0.11.4
+
+### Patch Changes
+
+- Expose multimodal agent metrics - [#1080](https://github.com/livekit/agents/pull/1080) ([@longcw](https://github.com/longcw))
+
 ## 0.11.3
 
 ### Patch Changes
