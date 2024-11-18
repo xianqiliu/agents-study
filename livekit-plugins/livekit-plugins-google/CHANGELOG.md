@@ -1,5 +1,11 @@
 # livekit-plugins-google
 
+## 0.8.0
+
+### Minor Changes
+
+- Add support for google STT chirp_2 model. - [#1089](https://github.com/livekit/agents/pull/1089) ([@brightsparc](https://github.com/brightsparc))
+
 ## 0.7.3
 
 ### Patch Changes

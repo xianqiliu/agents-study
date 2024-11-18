@@ -1,5 +1,11 @@
 # livekit-plugins-openai
 
+## 0.10.8
+
+### Patch Changes
+
+- Expose multimodal agent metrics - [#1080](https://github.com/livekit/agents/pull/1080) ([@longcw](https://github.com/longcw))
+
 ## 0.10.7
 
 ### Patch Changes
